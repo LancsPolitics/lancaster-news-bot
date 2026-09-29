@@ -1,34 +1,39 @@
-name: Lancaster Wyre News Bot
+import feedparser
+import google.generativeai as genai
+import os
+from datetime import datetime
 
-on:
-  schedule:
-    - cron: '0 8,12,16,20 * * *'
-  workflow_dispatch:
+# Free Gemini AI
+genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+model = genai.GenerativeModel('gemini-1.5-flash')
 
-jobs:
-  generate:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+# Local news search
+rss_url = "https://news.google.com/rss/search?q=%22Lancaster%22+OR+Wyre+OR+Morecambe+OR+Fleetwood+OR+%22Poulton-le-Fylde%22+Lancashire&hl=en-GB&gl=GB&ceid=GB:en"
 
-      - name: Show me what files exist
-        run: |
-          echo "Current folder contents:"
-          ls -la
-          echo ""
-          echo "Looking for bot.py..."
-          ls -la bot.py || echo "bot.py is MISSING"
+feed = feedparser.parse(rss_url)
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+tweets = []
+for entry in feed.entries[:6]:  # take the 6 newest stories
+    title = entry.title
+    link = entry.link
 
-      - name: Install packages
-        run: pip install feedparser google-generativeai
+    prompt = f"""
+    Write a short, natural, friendly tweet about this local news story from Lancaster or Wyre.
+    Keep it under 260 characters.
+    Include the link at the end.
+    Do not use hashtags unless they feel natural.
+    Story title: {title}
+    Link: {link}
+    """
 
-      - name: Run the bot
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: python bot.py
+    response = model.generate_content(prompt)
+    tweet = response.text.strip()
+    tweets.append(tweet)
+
+# Save the tweets to a file
+with open("todays_tweets.txt", "w") as f:
+    f.write(f"Generated on {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n")
+    for i, t in enumerate(tweets, 1):
+        f.write(f"Tweet {i}:\n{t}\n\n-------------------\n\n")
+
+print("Done! Tweets saved to todays_tweets.txt")
