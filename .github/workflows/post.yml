@@ -1,0 +1,25 @@
+name: Lancaster Wyre News Bot
+
+on:
+  schedule:
+    - cron: '0 8,12,16,20 * * *'   # runs 4 times a day (8am, 12pm, 4pm, 8pm UK time-ish)
+  workflow_dispatch:               # lets you run it manually any time
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install packages
+        run: pip install feedparser google-generativeai
+
+      - name: Run the bot
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python bot.py
